@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>TrendPulse</title>
+<!-- Telegram Web App SDK — REQUIRED for Mini App -->
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1c1c28;
+    --border: #2a2a3d;
+    --neon-pink: #ff2d7a;
+    --neon-cyan: #00f5d4;
+    --neon-yellow: #ffee00;
+    --neon-purple: #c77dff;
+    --text: #f0f0ff;
+    --muted: #7070a0;
+    --glow-pink: 0 0 20px rgba(255,45,122,0.4);
+    --glow-cyan: 0 0 20px rgba(0,245,212,0.4);
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+    padding-bottom: 80px;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.012) 2px, rgba(255,255,255,0.012) 4px);
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.2rem;
+    letter-spacing: -1px;
+    color: var(--neon-cyan);
+    text-shadow: var(--glow-cyan);
+  }
+
+  .logo span { color: var(--neon-pink); text-shadow: var(--glow-pink); }
+
+  .live-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.6rem;
+    letter-spacing: 2px;
+    color: var(--neon-pink);
+  }
+
+  .live-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--neon-pink);
+    box-shadow: var(--glow-pink);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.7); }
+  }
+
+  /* Stats strip */
+  .stats-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .stat-item {
+    background: var(--surface);
+    padding: 12px 10px;
+    text-align: center;
+    position: relative;
+  }
+
+  .stat-item::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+
+  .stat-item:nth-child(1)::before { background: var(--neon-pink); }
+  .stat-item:nth-child(2)::before { background: var(--neon-cyan); }
+  .stat-item:nth-child(3)::before { background: var(--neon-yellow); }
+  .stat-item:nth-child(4)::before { background: var(--neon-purple); }
+
+  .stat-val {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.1rem;
+    line-height: 1;
+  }
+
+  .stat-item:nth-child(1) .stat-val { color: var(--neon-pink); }
+  .stat-item:nth-child(2) .stat-val { color: var(--neon-cyan); }
+  .stat-item:nth-child(3) .stat-val { color: var(--neon-yellow); }
+  .stat-item:nth-child(4) .stat-val { color: var(--neon-purple); }
+
+  .stat-lbl { font-size: 0.5rem; color: var(--muted); letter-spacing: 1px; margin-top: 3px; text-transform: uppercase; }
+
+  /* Filter pills */
+  .filters {
+    display: flex;
+    gap: 8px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    scrollbar-width: none;
+  }
+
+  .filters::-webkit-scrollbar { display: none; }
+
+  .pill {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 7px 14px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 1px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+
+  .pill.active, .pill:active {
+    border-color: var(--neon-pink);
+    color: var(--neon-pink);
+    background: rgba(255,45,122,0.1);
+    box-shadow: var(--glow-pink);
+  }
+
+  /* Search */
+  .search-wrap {
+    padding: 14px 16px 0;
+    position: relative;
+  }
+
+  .search-input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    padding: 11px 16px 11px 38px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .search-input:focus { border-color: var(--neon-cyan); }
+  .search-input::placeholder { color: var(--muted); }
+
+  .search-icon {
+    position: absolute;
+    left: 28px;
+    top: 50%;
+    transform: translateY(-20%);
+    font-size: 1rem;
+    color: var(--muted);
+  }
+
+  /* Sort row */
+  .sort-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px 10px;
+  }
+
+  .section-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 0.95rem;
+  }
+
+  .sort-select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    padding: 6px 10px;
+    outline: none;
+  }
+
+  /* Cards */
+  .cards { padding: 0 16px; display: flex; flex-direction: column; gap: 12px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    animation: fadeIn 0.35s ease both;
+    transition: border-color 0.2s, transform 0.15s;
+  }
+
+  .card:active { transform: scale(0.98); }
+  .card.bookmarked { border-color: var(--neon-yellow); }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .card-top {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+  }
+
+  .card-emoji {
+    width: 80px;
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    background: var(--surface2);
+    flex-shrink: 0;
+  }
+
+  .card-info { padding: 12px 12px 8px; flex: 1; }
+
+  .card-meta-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+
+  .cat-tag {
+    font-size: 0.55rem;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 2px 8px;
+  }
+
+  .cat-animals { color: var(--neon-cyan); border: 1px solid var(--neon-cyan); background: rgba(0,245,212,0.08); }
+  .cat-memes { color: var(--neon-pink); border: 1px solid var(--neon-pink); background: rgba(255,45,122,0.08); }
+  .cat-toys { color: var(--neon-yellow); border: 1px solid var(--neon-yellow); background: rgba(255,238,0,0.08); }
+  .cat-trends { color: var(--neon-purple); border: 1px solid var(--neon-purple); background: rgba(199,125,255,0.08); }
+
+  .heat-score {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 0.85rem;
+    color: var(--neon-pink);
+  }
+
+  .card-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.88rem;
+    margin-bottom: 3px;
+    line-height: 1.3;
+  }
+
+  .card-desc {
+    font-size: 0.65rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .card-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-top: 1px solid var(--border);
+  }
+
+  .card-stats { display: flex; gap: 10px; }
+
+  .cs {
+    font-size: 0.62rem;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .cs.hot { color: var(--neon-pink); }
+
+  .card-actions { display: flex; gap: 6px; }
+
+  .act-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    width: 28px; height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.15s;
+    padding: 0;
+  }
+
+  .act-btn:active { transform: scale(0.9); }
+  .act-btn.saved { border-color: var(--neon-yellow); color: var(--neon-yellow); background: rgba(255,238,0,0.1); }
+
+  .heat-bar {
+    height: 2px;
+    background: var(--surface2);
+  }
+
+  .heat-fill {
+    height: 100%;
+    transition: width 1s ease;
+  }
+
+  .fill-animals { background: var(--neon-cyan); }
+  .fill-memes { background: var(--neon-pink); }
+  .fill-toys { background: var(--neon-yellow); }
+  .fill-trends { background: var(--neon-purple); }
+
+  .rising-tag {
+    font-size: 0.55rem;
+    color: var(--neon-cyan);
+    letter-spacing: 1px;
+    margin-left: 6px;
+  }
+
+  /* Hashtag section */
+  .hashtags-section {
+    padding: 14px 16px;
+    margin-top: 8px;
+  }
+
+  .hashtag-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .htag {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--neon-cyan);
+    font-size: 0.65rem;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .htag:active { background: rgba(0,245,212,0.1); border-color: var(--neon-cyan); }
+
+  .htag-arrow { font-size: 0.7rem; }
+  .htag-arrow.up { color: var(--neon-cyan); }
+  .htag-arrow.down { color: var(--neon-pink); }
+  .htag-arrow.flat { color: var(--muted); }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 90px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--neon-yellow);
+    color: var(--bg);
+    padding: 10px 20px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.75rem;
+    z-index: 9000;
+    opacity: 0;
+    transition: all 0.3s;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* Bottom nav */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    z-index: 200;
+  }
+
+  .nav-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 0;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.5rem;
+    letter-spacing: 0.5px;
+    gap: 3px;
+    transition: color 0.2s;
+    text-transform: uppercase;
+  }
+
+  .nav-btn .nav-icon { font-size: 1.2rem; }
+  .nav-btn.active { color: var(--neon-pink); }
+
+  /* No results */
+  .no-results {
+    text-align: center;
+    padding: 50px 20px;
+    color: var(--muted);
+    font-size: 0.75rem;
+    letter-spacing: 1px;
+  }
+
+  /* Watchlist tab */
+  .watchlist-view { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+
+  .wl-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+    font-size: 0.75rem;
+  }
+
+  .wl-empty .wl-icon { font-size: 3rem; display: block; margin-bottom: 12px; }
+
+  /* Alerts tab */
+  .alerts-view { padding: 16px; }
+
+  .alert-form-tg {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .alert-input-tg {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    padding: 10px 14px;
+    outline: none;
+  }
+
+  .alert-input-tg:focus { border-color: var(--neon-purple); }
+  .alert-input-tg::placeholder { color: var(--muted); }
+
+  .alert-add-btn {
+    background: var(--neon-purple);
+    color: var(--bg);
+    border: none;
+    padding: 10px 16px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.72rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .alert-chip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(199,125,255,0.1);
+    border: 1px solid rgba(199,125,255,0.3);
+    padding: 10px 14px;
+    margin-bottom: 8px;
+    font-size: 0.72rem;
+    color: var(--neon-purple);
+  }
+
+  .alert-rm {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 0;
+    line-height: 1;
+  }
+
+  .alert-rm:active { color: var(--neon-pink); }
+
+  .alert-matches {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .match-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    background: var(--surface);
+    margin-bottom: 8px;
+    font-size: 0.7rem;
+  }
+
+  .match-emoji { font-size: 1.5rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Trend<span>Pulse</span></div>
+  <div class="live-badge">
+    <div class="live-dot"></div>
+    LIVE
+  </div>
+</header>
+
+<div id="tab-trends">
+  <!-- Stats -->
+  <div class="stats-strip">
+    <div class="stat-item">
+      <div class="stat-val">12</div>
+      <div class="stat-lbl">Trending</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-val">2.4B</div>
+      <div class="stat-lbl">Views</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-val" id="stat-rising-count">5</div>
+      <div class="stat-lbl">Rising</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-val" id="stat-saved-count">0</div>
+      <div class="stat-lbl">Saved</div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters">
+    <button class="pill active" data-cat="all" onclick="setFilter('all',this)">🔥 All</button>
+    <button class="pill" data-cat="animals" onclick="setFilter('animals',this)">🐾 Animals</button>
+    <button class="pill" data-cat="memes" onclick="setFilter('memes',this)">😂 Memes</button>
+    <button class="pill" data-cat="toys" onclick="setFilter('toys',this)">🧸 Toys</button>
+    <button class="pill" data-cat="trends" onclick="setFilter('trends',this)">📈 Viral</button>
+  </div>
+
+  <!-- Search -->
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input class="search-input" type="text" placeholder="Search trends, tags..." id="search" oninput="doSearch(this.value)" />
+  </div>
+
+  <!-- Sort row -->
+  <div class="sort-row">
+    <div class="section-title">Trending Now</div>
+    <select class="sort-select" onchange="doSort(this.value)">
+      <option value="heat">🔥 Hottest</option>
+      <option value="views">👁 Most Views</option>
+      <option value="rising">📈 Rising</option>
+    </select>
+  </div>
+
+  <!-- Cards -->
+  <div class="cards" id="cards"></div>
+
+  <!-- Hashtags -->
+  <div class="hashtags-section">
+    <div class="section-title">🏷️ Hot Hashtags</div>
+    <div class="hashtag-grid" id="hashtag-grid"></div>
+  </div>
+</div>
+
+<!-- Watchlist Tab -->
+<div id="tab-watchlist" style="display:none">
+  <div style="padding:16px;border-bottom:1px solid var(--border)">
+    <div class="section-title">⭐ Your Watchlist</div>
+  </div>
+  <div class="watchlist-view" id="watchlist-view"></div>
+</div>
+
+<!-- Alerts Tab -->
+<div id="tab-alerts" style="display:none">
+  <div style="padding:16px;border-bottom:1px solid var(--border)">
+    <div class="section-title">🔔 Keyword Alerts</div>
+  </div>
+  <div class="alerts-view">
+    <div class="alert-form-tg">
+      <input class="alert-input-tg" type="text" id="alert-input" placeholder="e.g. cat, dance, asmr..." />
+      <button class="alert-add-btn" onclick="addAlert()">+ Add</button>
+    </div>
+    <div id="alert-chips"></div>
+    <div class="alert-matches" id="alert-matches" style="display:none">
+      <div class="section-title" style="margin-bottom:10px">Matching Trends</div>
+      <div id="match-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom Nav -->
+<div class="bottom-nav">
+  <button class="nav-btn active" id="nav-trends" onclick="showTab('trends')">
+    <span class="nav-icon">🔥</span>Trends
+  </button>
+  <button class="nav-btn" id="nav-watchlist" onclick="showTab('watchlist')">
+    <span class="nav-icon">⭐</span>Watchlist
+  </button>
+  <button class="nav-btn" id="nav-alerts" onclick="showTab('alerts')">
+    <span class="nav-icon">🔔</span>Alerts
+  </button>
+  <button class="nav-btn" id="nav-share" onclick="shareToBot()">
+    <span class="nav-icon">📤</span>Share
+  </button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── Telegram WebApp Init ─────────────────────────────────────────────────────
+const tg = window.Telegram?.WebApp;
+if (tg) {
+  tg.ready();
+  tg.expand();
+  tg.BackButton.onClick(() => {
+    if (currentTab !== 'trends') showTab('trends');
+    else tg.close();
+  });
+}
+
+// ─── Data ─────────────────────────────────────────────────────────────────────
+const trends = [
+  { id:1, cat:'animals', emoji:'🐱', title:'Cat Yoga Challenge', desc:'Cats photobombing their owners doing yoga. Peak chaos energy.', heat:98, views:'847M', likes:'52M', shares:'8.2M', tags:['#catyoga','#petsoftiktok','#catlife','#funnycats'], rising:true },
+  { id:2, cat:'memes', emoji:'😭', title:'This Is Fine Dog', desc:'New wave of "everything is fine" memes with absurdist twists.', heat:94, views:'612M', likes:'38M', shares:'11M', tags:['#thisisfine','#memegen','#relateable','#xyzbca'], rising:false },
+  { id:3, cat:'toys', emoji:'🪄', title:'Magnetic Sand ASMR', desc:'Kinetic magnetic sand sculptures going absolutely viral.', heat:91, views:'503M', likes:'29M', shares:'6.7M', tags:['#magneticsand','#asmr','#satisfying'], rising:false },
+  { id:4, cat:'trends', emoji:'💃', title:'Slow Mo Mirror Dance', desc:'Unexpected slow-motion mirror transitions. Everyone is doing this.', heat:99, views:'1.2B', likes:'79M', shares:'14M', tags:['#mirrordance','#slowmo','#fyp','#dancechallenge'], rising:true },
+  { id:5, cat:'animals', emoji:'🐶', title:'Dog Outfit Reviews', desc:'Dogs reviewing their own Halloween outfits. The side-eye is everything.', heat:86, views:'389M', likes:'24M', shares:'4.1M', tags:['#dogoutfit','#dogmom','#dogsoftiktok'], rising:false },
+  { id:6, cat:'memes', emoji:'🤌', title:'Italian Hand Gestures', desc:'Teaching random words using only Italian hand gestures.', heat:88, views:'445M', likes:'31M', shares:'9.8M', tags:['#italian','#handgestures','#culturetok'], rising:true },
+  { id:7, cat:'toys', emoji:'🎮', title:"Rubik's Speed Solve", desc:"Teens solving Rubik's cubes with increasingly dramatic setups.", heat:82, views:'298M', likes:'19M', shares:'3.4M', tags:['#speedcubing','#rubikscube','#satisfying'], rising:false },
+  { id:8, cat:'trends', emoji:'🌊', title:'Ocean Cleanup POV', desc:'Satisfying ocean cleanup videos with before/after reveals.', heat:90, views:'567M', likes:'45M', shares:'12M', tags:['#oceancleanup','#earthtok','#fyp'], rising:true },
+  { id:9, cat:'animals', emoji:'🐦', title:'Parrot Cooking Reviews', desc:"Parrots critiquing their owners' cooking with surprisingly accurate commentary.", heat:84, views:'321M', likes:'22M', shares:'5.3M', tags:['#parrot','#birdtok','#funnypets'], rising:false },
+  { id:10, cat:'trends', emoji:'🎭', title:'Silent Disco In Public', desc:'Spontaneous silent disco flash mobs in shopping malls.', heat:93, views:'678M', likes:'51M', shares:'13M', tags:['#silentdisco','#flashmob','#viral'], rising:true },
+  { id:11, cat:'memes', emoji:'🧠', title:'Big Brain Moments', desc:'Life hacks so obvious they\'re embarrassing.', heat:79, views:'267M', likes:'17M', shares:'7.8M', tags:['#lifehack','#bigbrain','#mindblown'], rising:false },
+  { id:12, cat:'toys', emoji:'🎪', title:'Pop-It Sensory Art', desc:'Pop-it toys used to create intricate pixel art. Unexpectedly beautiful.', heat:77, views:'234M', likes:'15M', shares:'2.9M', tags:['#popit','#sensory','#pixelart'], rising:false }
+];
+
+const hashtags = [
+  { tag:'#fyp', views:'42T', trend:'flat' },
+  { tag:'#petsoftiktok', views:'18T', trend:'up' },
+  { tag:'#satisfying', views:'12T', trend:'up' },
+  { tag:'#dancechallenge', views:'9.8T', trend:'up' },
+  { tag:'#memes', views:'8.4T', trend:'flat' },
+  { tag:'#asmr', views:'7.1T', trend:'down' },
+  { tag:'#viral', views:'6.8T', trend:'up' },
+];
+
+let currentFilter = 'all';
+let currentSearch = '';
+let currentSort = 'heat';
+let savedIds = new Set();
+let alertKeywords = [];
+let currentTab = 'trends';
+
+// ─── Render Cards ─────────────────────────────────────────────────────────────
+function renderCards() {
+  const container = document.getElementById('cards');
+  let list = trends.filter(t => {
+    const catOk = currentFilter === 'all' || t.cat === currentFilter;
+    const searchOk = !currentSearch || t.title.toLowerCase().includes(currentSearch) || t.tags.some(x => x.includes(currentSearch)) || t.desc.toLowerCase().includes(currentSearch);
+    return catOk && searchOk;
+  });
+
+  if (currentSort === 'heat') list.sort((a,b) => b.heat - a.heat);
+  else if (currentSort === 'views') list.sort((a,b) => parseFloat(b.views) - parseFloat(a.views));
+  else if (currentSort === 'rising') list.sort((a,b) => (b.rising?1:0) - (a.rising?1:0));
+
+  if (!list.length) {
+    container.innerHTML = '<div class="no-results">🔍 No trends found</div>';
+    return;
+  }
+
+  container.innerHTML = list.map((t, i) => `
+    <div class="card ${savedIds.has(t.id)?'bookmarked':''}" style="animation-delay:${i*0.04}s">
+      <div class="card-top">
+        <div class="card-emoji">${t.emoji}</div>
+        <div class="card-info">
+          <div class="card-meta-top">
+            <span class="cat-tag cat-${t.cat}">${t.cat}</span>
+            <span class="heat-score">🔥 ${t.heat}</span>
+          </div>
+          <div class="card-title">${t.title}${t.rising ? '<span class="rising-tag">▲ RISING</span>':''}</div>
+          <div class="card-desc">${t.desc}</div>
+        </div>
+      </div>
+      <div class="heat-bar"><div class="heat-fill fill-${t.cat}" style="width:${t.heat}%"></div></div>
+      <div class="card-bottom">
+        <div class="card-stats">
+          <span class="cs hot">👁 ${t.views}</span>
+          <span class="cs">❤️ ${t.likes}</span>
+          <span class="cs">🔁 ${t.shares}</span>
+        </div>
+        <div class="card-actions">
+          <button class="act-btn ${savedIds.has(t.id)?'saved':''}" onclick="toggleSave(${t.id})" title="Save">⭐</button>
+          <button class="act-btn" onclick="copyTag('${t.tags[0]}')" title="Copy tag">#</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderHashtags() {
+  document.getElementById('hashtag-grid').innerHTML = hashtags.map(h => `
+    <div class="htag" onclick="quickSearch('${h.tag.replace('#','')}')">
+      ${h.tag}
+      <span class="htag-arrow ${h.trend}">${h.trend==='up'?'↑':h.trend==='down'?'↓':'→'}</span>
+      <span style="font-size:0.55rem;color:var(--muted)">${h.views}</span>
+    </div>
+  `).join('');
+}
+
+function renderWatchlist() {
+  const el = document.getElementById('watchlist-view');
+  const saved = trends.filter(t => savedIds.has(t.id));
+  document.getElementById('stat-saved-count').textContent = savedIds.size;
+
+  if (!saved.length) {
+    el.innerHTML = '<div class="wl-empty"><span class="wl-icon">⭐</span>Bookmark trends from the Trends tab to track them here.</div>';
+    return;
+  }
+
+  el.innerHTML = saved.map(t => `
+    <div class="card">
+      <div class="card-top">
+        <div class="card-emoji">${t.emoji}</div>
+        <div class="card-info">
+          <div class="card-meta-top">
+            <span class="cat-tag cat-${t.cat}">${t.cat}</span>
+            <span class="heat-score">🔥 ${t.heat}</span>
+          </div>
+          <div class="card-title">${t.title}</div>
+          <div class="card-desc">${t.desc}</div>
+        </div>
+      </div>
+      <div class="card-bottom">
+        <div class="card-stats">
+          <span class="cs hot">👁 ${t.views}</span>
+          <span class="cs">❤️ ${t.likes}</span>
+        </div>
+        <button class="act-btn saved" onclick="toggleSave(${t.id})">✕ Remove</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderAlerts() {
+  const chips = document.getElementById('alert-chips');
+  chips.innerHTML = alertKeywords.map(k => `
+    <div class="alert-chip">
+      <span>🔔 ${k}</span>
+      <button class="alert-rm" onclick="removeAlert('${k}')">✕</button>
+    </div>
+  `).join('');
+
+  // Show matches
+  if (alertKeywords.length > 0) {
+    const matches = trends.filter(t => alertKeywords.some(k =>
+      t.title.toLowerCase().includes(k) || t.desc.toLowerCase().includes(k) ||
+      t.tags.some(tag => tag.includes(k)) || t.cat.includes(k)
+    ));
+    const matchEl = document.getElementById('alert-matches');
+    const matchList = document.getElementById('match-list');
+    if (matches.length) {
+      matchEl.style.display = 'block';
+      matchList.innerHTML = matches.map(t => `
+        <div class="match-item">
+          <span class="match-emoji">${t.emoji}</span>
+          <div>
+            <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:0.8rem">${t.title}</div>
+            <div style="font-size:0.6rem;color:var(--muted)">${t.cat} • 🔥 ${t.heat} • 👁 ${t.views}</div>
+          </div>
+        </div>
+      `).join('');
+    } else {
+      matchEl.style.display = 'none';
+    }
+  } else {
+    document.getElementById('alert-matches').style.display = 'none';
+  }
+}
+
+// ─── Actions ──────────────────────────────────────────────────────────────────
+function setFilter(cat, btn) {
+  currentFilter = cat;
+  document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  renderCards();
+}
+
+function doSearch(val) {
+  currentSearch = val.toLowerCase();
+  renderCards();
+}
+
+function quickSearch(tag) {
+  document.getElementById('search').value = tag;
+  currentSearch = tag;
+  showTab('trends');
+  renderCards();
+}
+
+function doSort(val) {
+  currentSort = val;
+  renderCards();
+}
+
+function toggleSave(id) {
+  if (savedIds.has(id)) { savedIds.delete(id); showToast('Removed from watchlist'); }
+  else { savedIds.add(id); showToast('⭐ Added to watchlist!'); tg?.HapticFeedback?.impactOccurred('light'); }
+  renderCards();
+  renderWatchlist();
+}
+
+function copyTag(tag) {
+  navigator.clipboard.writeText(tag).catch(() => {});
+  showToast(`Copied ${tag}`);
+}
+
+function addAlert() {
+  const input = document.getElementById('alert-input');
+  const kw = input.value.trim().toLowerCase();
+  if (!kw || alertKeywords.includes(kw)) return;
+  alertKeywords.push(kw);
+  input.value = '';
+  renderAlerts();
+  showToast(`🔔 Alert set for "${kw}"`);
+  tg?.HapticFeedback?.notificationOccurred('success');
+}
+
+document.getElementById('alert-input').addEventListener('keypress', e => {
+  if (e.key === 'Enter') addAlert();
+});
+
+function removeAlert(kw) {
+  alertKeywords = alertKeywords.filter(a => a !== kw);
+  renderAlerts();
+}
+
+function showTab(tab) {
+  currentTab = tab;
+  ['trends','watchlist','alerts'].forEach(t => {
+    document.getElementById(`tab-${t}`).style.display = t === tab ? 'block' : 'none';
+    document.getElementById(`nav-${t}`).classList.toggle('active', t === tab);
+  });
+  document.getElementById('nav-share').classList.remove('active');
+  if (tab === 'watchlist') renderWatchlist();
+  if (tab === 'alerts') renderAlerts();
+
+  // Telegram Back Button
+  if (tg) {
+    if (tab !== 'trends') tg.BackButton.show();
+    else tg.BackButton.hide();
+  }
+}
+
+function shareToBot() {
+  const top = [...trends].sort((a,b) => b.heat - a.heat)[0];
+  if (tg) {
+    tg.switchInlineQuery(`🔥 ${top.title} — Heat: ${top.heat}/100 | 👁 ${top.views}`);
+  } else {
+    showToast('Open in Telegram to share');
+  }
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+renderCards();
+renderHashtags();
+</script>
+</body>
+</html>
